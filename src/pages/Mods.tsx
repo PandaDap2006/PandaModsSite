@@ -1,8 +1,9 @@
 import React, {useEffect, useState} from "react";
-import {CircularProgress, Divider, IconButton, Paper, Stack, TextField, Typography} from "@mui/material";
+import {Box, Button, CircularProgress, Divider, IconButton, Paper, Stack, TextField, Typography} from "@mui/material";
 import {ModrinthSearchResults} from "../api/model/ModrinthSearchResults.ts";
 import {Api} from "../scripts/Api.ts";
 import DownloadIcon from '@mui/icons-material/Download';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -24,9 +25,10 @@ export function Mods() {
 	async function getSearchs() {
 		try {
 			setIsSearching(true);
-			const result = await Api.searchModrinth(search, searchPage, "mod", "pandadap2006");
-			setSearchResults(result);
-			setMaxSearchPage(result.total_hits ? Math.ceil(result.total_hits / 50) - 1 : 0);
+			const resultModrinth = await Api.searchModrinth(search, searchPage, "mod", "pandadap2006");
+			const resultCurseforge = await Api.searchCurseforge(search, searchPage, "mod", "pandadap2006");
+			setSearchResults(resultModrinth);
+			setMaxSearchPage(resultModrinth.total_hits ? Math.ceil(resultModrinth.total_hits / 50) - 1 : 0);
 		} finally {
 			setIsSearching(false);
 		}
@@ -43,7 +45,7 @@ export function Mods() {
 						<React.Fragment>
 							<Stack direction="row" flexWrap={"wrap"} gap={2} justifyContent="center">
 								{searchResults?.hits.map(value => (
-									createProject(value.project_id, value.icon_url, value.title, value.downloads)
+									createProject(value.project_id, value.icon_url, value.title, value.downloads, value.follows, value.latest_version)
 								))}
 							</Stack>
 							{maxSearchPage > 0 && <Divider/>}
@@ -83,24 +85,43 @@ export function Mods() {
 	}
 }
 
-function createProject(projectId: string, imageURL: string, name: string, downloads: number) {
+function createProject(projectId: string, imageURL: string, name: string, downloads: number, likes: number, latestVersion: string) {
 	return (
-		<Paper key={projectId} sx={{padding: 1, maxWidth: 400, width: "100%"}}>
-			<Stack direction="row" gap={2}>
-				<img src={imageURL} width={100} height={100} style={{borderRadius: 10}}/>
-				<Stack direction="column" sx={{width: "100%"}}>
-					<Typography variant="h5">{name}</Typography>
-					<Stack direction="row" sx={{marginTop: "auto"}}>
-						<Stack direction="row">
-							<DownloadIcon/>
-							<Typography variant="body1"
-										sx={{textAlign: "center"}}>{new Intl.NumberFormat("en", {
-								notation: "compact"
-							}).format(downloads)}</Typography>
+		<Paper key={projectId} sx={{maxWidth: 500, width: "100%"}}>
+			<Button sx={{
+				justifyContent: "left",
+				padding: 1,
+				color: "unset",
+				textAlign: "unset",
+				wordWrap: "unset",
+				width: "100%"
+			}}>
+				<Stack direction="row" gap={2}>
+					<img src={imageURL} width={100} height={100} style={{borderRadius: 10}}/>
+					<Stack direction="column" sx={{width: "100%"}}>
+						<Typography variant="h5">{name}</Typography>
+						<Typography variant="h6">{latestVersion}</Typography>
+						<Stack direction="row" sx={{marginTop: "auto"}}>
+							<Stack direction="row" gap={2}>
+								<Box sx={{display: "flex"}}>
+									<DownloadIcon/>
+									<Typography variant="body1"
+												sx={{textAlign: "center"}}>{new Intl.NumberFormat("en", {
+										notation: "compact"
+									}).format(downloads)}</Typography>
+								</Box>
+								<Box sx={{display: "flex"}}>
+									<FavoriteIcon/>
+									<Typography variant="body1"
+												sx={{textAlign: "center"}}>{new Intl.NumberFormat("en", {
+										notation: "compact"
+									}).format(likes)}</Typography>
+								</Box>
+							</Stack>
 						</Stack>
 					</Stack>
 				</Stack>
-			</Stack>
+			</Button>
 		</Paper>
 	)
 }

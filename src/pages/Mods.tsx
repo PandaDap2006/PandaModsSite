@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from "react";
 import {Box, Button, CircularProgress, Divider, IconButton, Paper, Stack, TextField, Typography} from "@mui/material";
-import {ModrinthSearchResults} from "../api/model/ModrinthSearchResults.ts";
 import {Api} from "../scripts/Api.ts";
 import DownloadIcon from '@mui/icons-material/Download';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -8,6 +7,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
+import {SearchResult, SearchResults} from "../api/model/SearchResults.ts";
 
 export function Mods() {
 	const [isSearching, setIsSearching] = useState(true)
@@ -16,7 +16,7 @@ export function Mods() {
 	const [maxSearchPage, setMaxSearchPage] = useState(0)
 
 	const [search, setSearch] = useState("")
-	const [searchResults, setSearchResults] = useState<ModrinthSearchResults>()
+	const [searchResults, setSearchResults] = useState<SearchResults>()
 
 	useEffect(() => {
 		getSearchs()
@@ -26,9 +26,41 @@ export function Mods() {
 		try {
 			setIsSearching(true);
 			const resultModrinth = await Api.searchModrinth(search, searchPage, "mod", "pandadap2006");
-			const resultCurseforge = await Api.searchCurseforge(search, searchPage, "mod", "pandadap2006");
-			setSearchResults(resultModrinth);
-			setMaxSearchPage(resultModrinth.total_hits ? Math.ceil(resultModrinth.total_hits / 50) - 1 : 0);
+			const resultCurseforge = await Api.searchCurseforge(search, searchPage, 33098021);
+			const projectList: SearchResult[] = []
+
+			resultModrinth.hits.map(value => {
+				projectList.push({
+					modrinthFollows: value.follows,
+					slug: value.slug,
+					downloads: value.downloads,
+					imageURL: value.icon_url,
+					title: value.title,
+					latestVersion: value.latest_version
+				})
+			})
+			resultCurseforge.data.map(value => {
+				const existingResult = projectList.find(value1 => value1.slug == value.slug);
+				if (existingResult) {
+					existingResult.downloads += value.downloadCount;
+				} else {
+					projectList.push({
+						modrinthFollows: 0,
+						slug: value.slug,
+						downloads: value.downloadCount,
+						imageURL: value.logo.url,
+						title: value.name,
+						latestVersion: value.latestFiles[0].gameVersions[0]
+					})
+				}
+			})
+
+			const newSearchResults: SearchResults = {
+				results: projectList,
+				totalItems: resultModrinth.total_hits + resultCurseforge.pagination.totalCount
+			};
+			setSearchResults(newSearchResults);
+			setMaxSearchPage(newSearchResults.totalItems ? Math.ceil(newSearchResults.totalItems / 50) - 1 : 0);
 		} finally {
 			setIsSearching(false);
 		}
@@ -44,9 +76,7 @@ export function Mods() {
 					{isSearching ? <CircularProgress sx={{marginX: "auto"}}/> :
 						<React.Fragment>
 							<Stack direction="row" flexWrap={"wrap"} gap={2} justifyContent="center">
-								{searchResults?.hits.map(value => (
-									createProject(value.project_id, value.icon_url, value.title, value.downloads, value.follows, value.latest_version)
-								))}
+								{searchResults?.results.map(value => (createProject(value)))}
 							</Stack>
 							{maxSearchPage > 0 && <Divider/>}
 							<CreateArrowButtons/>
@@ -85,9 +115,9 @@ export function Mods() {
 	}
 }
 
-function createProject(projectId: string, imageURL: string, name: string, downloads: number, likes: number, latestVersion: string) {
+function createProject({title, imageURL, latestVersion, downloads, slug, modrinthFollows}: SearchResult) {
 	return (
-		<Paper key={projectId} sx={{maxWidth: 500, width: "100%"}}>
+		<Paper key={slug} sx={{maxWidth: 500, width: "100%"}}>
 			<Button sx={{
 				justifyContent: "left",
 				padding: 1,
@@ -99,7 +129,7 @@ function createProject(projectId: string, imageURL: string, name: string, downlo
 				<Stack direction="row" gap={2}>
 					<img src={imageURL} width={100} height={100} style={{borderRadius: 10}}/>
 					<Stack direction="column" sx={{width: "100%"}}>
-						<Typography variant="h5">{name}</Typography>
+						<Typography variant="h5">{title}</Typography>
 						<Typography variant="h6">{latestVersion}</Typography>
 						<Stack direction="row" sx={{marginTop: "auto"}}>
 							<Stack direction="row" gap={2}>
@@ -115,7 +145,7 @@ function createProject(projectId: string, imageURL: string, name: string, downlo
 									<Typography variant="body1"
 												sx={{textAlign: "center"}}>{new Intl.NumberFormat("en", {
 										notation: "compact"
-									}).format(likes)}</Typography>
+									}).format(modrinthFollows)}</Typography>
 								</Box>
 							</Stack>
 						</Stack>
